@@ -10,7 +10,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
-import { initializeApp } from 'firebase/app';
+import { initializeApp, deleteApp } from 'firebase/app';  // ← ADD deleteApp HERE
 
 const AuthContext = createContext();
 
@@ -38,7 +38,7 @@ export function AuthProvider({ children }) {
       projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
     };
     
-    const secondaryApp = initializeApp(firebaseConfig, 'Secondary');
+    const secondaryApp = initializeApp(firebaseConfig, 'Secondary-' + Date.now());  // ← ADD TIMESTAMP
     const secondaryAuth = initializeAuth(secondaryApp, {
       persistence: browserSessionPersistence
     });
@@ -70,15 +70,17 @@ export function AuthProvider({ children }) {
       // Send password reset email
       await sendPasswordResetEmail(secondaryAuth, email);
       
-      // Sign out from secondary auth and delete the app
+      // Sign out from secondary auth
       await signOut(secondaryAuth);
-      await secondaryApp.delete();
+      
+      // Delete the secondary app
+      await deleteApp(secondaryApp);  // ← CHANGE FROM secondaryApp.delete()
 
       return { success: true };
     } catch (error) {
       // Clean up secondary app on error
       try {
-        await secondaryApp.delete();
+        await deleteApp(secondaryApp);  // ← CHANGE FROM secondaryApp.delete()
       } catch (e) {
         // Ignore cleanup errors
       }
