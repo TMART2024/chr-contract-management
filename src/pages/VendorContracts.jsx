@@ -22,11 +22,18 @@ export default function VendorContracts() {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
+    area: '',
+    typeOfContract: '',
+    dateSigned: '',
     startDate: '',
     endDate: '',
+    initialExpirationDate: '',
+    renewalPeriod: '',
     autoRenewal: false,
     autoRenewalPeriod: 1,
-    cancellationNoticeDays: 30
+    cancellationNoticeDays: 30,
+    usersOrAccountNumber: '',
+    requestedFrom: ''
   });
 
   useEffect(() => {
@@ -61,11 +68,18 @@ export default function VendorContracts() {
         type: 'vendor',
         name: formData.name,
         description: formData.description,
+        area: formData.area,
+        typeOfContract: formData.typeOfContract,
+        dateSigned: formData.dateSigned ? Timestamp.fromDate(new Date(formData.dateSigned)) : null,
         startDate: Timestamp.fromDate(new Date(formData.startDate)),
         endDate: Timestamp.fromDate(new Date(formData.endDate)),
+        initialExpirationDate: formData.initialExpirationDate ? Timestamp.fromDate(new Date(formData.initialExpirationDate)) : null,
+        renewalPeriod: formData.renewalPeriod,
         autoRenewal: formData.autoRenewal,
         autoRenewalPeriod: formData.autoRenewal ? parseInt(formData.autoRenewalPeriod) : null,
-        cancellationNoticeDays: parseInt(formData.cancellationNoticeDays)
+        cancellationNoticeDays: parseInt(formData.cancellationNoticeDays),
+        usersOrAccountNumber: formData.usersOrAccountNumber,
+        requestedFrom: formData.requestedFrom
       };
 
       const createResult = await createContract(contractData, currentUser.uid);
@@ -118,11 +132,18 @@ export default function VendorContracts() {
     setFormData({
       name: '',
       description: '',
+      area: '',
+      typeOfContract: '',
+      dateSigned: '',
       startDate: '',
       endDate: '',
+      initialExpirationDate: '',
+      renewalPeriod: '',
       autoRenewal: false,
       autoRenewalPeriod: 1,
-      cancellationNoticeDays: 30
+      cancellationNoticeDays: 30,
+      usersOrAccountNumber: '',
+      requestedFrom: ''
     });
   }
 
@@ -213,18 +234,39 @@ export default function VendorContracts() {
               </div>
 
               <div>
-                <label className="label">Description</label>
+                <label className="label">Area/Department</label>
                 <input
                   type="text"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  value={formData.area}
+                  onChange={(e) => setFormData({ ...formData, area: e.target.value })}
                   className="input-field"
-                  placeholder="e.g., IT Equipment Supplier"
+                  placeholder="e.g., IT, Marketing, Engineering"
                 />
               </div>
 
               <div>
-                <label className="label">Start Date *</label>
+                <label className="label">Type of Contract</label>
+                <input
+                  type="text"
+                  value={formData.typeOfContract}
+                  onChange={(e) => setFormData({ ...formData, typeOfContract: e.target.value })}
+                  className="input-field"
+                  placeholder="e.g., 1 year, subscription, license"
+                />
+              </div>
+
+              <div>
+                <label className="label">Date Signed</label>
+                <input
+                  type="date"
+                  value={formData.dateSigned}
+                  onChange={(e) => setFormData({ ...formData, dateSigned: e.target.value })}
+                  className="input-field"
+                />
+              </div>
+
+              <div>
+                <label className="label">Term Start Date *</label>
                 <input
                   type="date"
                   required
@@ -235,7 +277,17 @@ export default function VendorContracts() {
               </div>
 
               <div>
-                <label className="label">End Date *</label>
+                <label className="label">Initial Expiration Date</label>
+                <input
+                  type="date"
+                  value={formData.initialExpirationDate}
+                  onChange={(e) => setFormData({ ...formData, initialExpirationDate: e.target.value })}
+                  className="input-field"
+                />
+              </div>
+
+              <div>
+                <label className="label">Current Term End Date *</label>
                 <input
                   type="date"
                   required
@@ -253,10 +305,55 @@ export default function VendorContracts() {
                   onChange={(e) => setFormData({ ...formData, cancellationNoticeDays: e.target.value })}
                   className="input-field"
                   min="0"
+                  placeholder="e.g., 30, 60, 90"
                 />
               </div>
 
-              <div className="flex items-center space-x-4 pt-6">
+              <div>
+                <label className="label">Renewal Period</label>
+                <input
+                  type="text"
+                  value={formData.renewalPeriod}
+                  onChange={(e) => setFormData({ ...formData, renewalPeriod: e.target.value })}
+                  className="input-field"
+                  placeholder="e.g., 1 year automatic, no mention"
+                />
+              </div>
+
+              <div>
+                <label className="label">Users or Account Number</label>
+                <input
+                  type="text"
+                  value={formData.usersOrAccountNumber}
+                  onChange={(e) => setFormData({ ...formData, usersOrAccountNumber: e.target.value })}
+                  className="input-field"
+                  placeholder="e.g., John Doe, Account #12345"
+                />
+              </div>
+
+              <div>
+                <label className="label">Requested From</label>
+                <input
+                  type="text"
+                  value={formData.requestedFrom}
+                  onChange={(e) => setFormData({ ...formData, requestedFrom: e.target.value })}
+                  className="input-field"
+                  placeholder="Who provided this info"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="label">Notes</label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="input-field"
+                  rows="3"
+                  placeholder="Additional notes or details"
+                />
+              </div>
+
+              <div className="md:col-span-2 flex items-center space-x-4 pt-2">
                 <label className="flex items-center">
                   <input
                     type="checkbox"

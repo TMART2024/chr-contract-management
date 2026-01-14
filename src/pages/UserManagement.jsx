@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { Users, Shield, Eye, Edit, Loader2, Plus, X } from 'lucide-react';
+import { Users, Shield, Eye, Edit, Loader2, Plus, X, Trash2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function UserManagement() {
-  const { userProfile, createUserAsAdmin } = useAuth();
+  const { userProfile, createUserAsAdmin, currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(null);
+  const [deleting, setDeleting] = useState(null);
   const [showAddUser, setShowAddUser] = useState(false);
   const [creating, setCreating] = useState(false);
   
@@ -26,12 +27,18 @@ export default function UserManagement() {
   async function loadUsers() {
     setLoading(true);
     try {
+      console.log('Loading users from Firestore...');
       const usersSnapshot = await getDocs(collection(db, 'users'));
-      const usersData = usersSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      console.log('Found', usersSnapshot.docs.length, 'users');
+      const usersData = usersSnapshot.docs.map(doc => {
+        console.log('User:', doc.id, doc.data());
+        return {
+          id: doc.id,
+          ...doc.data()
+        };
+      });
       setUsers(usersData);
+      console.log('Users state updated:', usersData);
     } catch (error) {
       console.error('Error loading users:', error);
     } finally {
@@ -89,6 +96,31 @@ export default function UserManagement() {
       alert('Failed to update user role');
     } finally {
       setUpdating(null);
+    }
+  }
+
+  async function deleteUser(userId, userName) {
+    // Prevent deleting yourself
+    if (userId === currentUser?.uid) {
+      alert("You cannot delete your own account!");
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete ${userName}? This action cannot be undone.`)) {
+      return;
+    }
+
+    setDeleting(userId);
+    try {
+      // Delete from Firestore (note: this doesn't delete from Firebase Auth)
+      await deleteDoc(doc(db, 'users', userId));
+      await loadUsers();
+      alert('User deleted successfully. Note: They can still login if they remember their password, but will have no permissions.');
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      alert('Failed to delete user');
+    } finally {
+      setDeleting(null);
     }
   }
 
@@ -241,6 +273,9 @@ export default function UserManagement() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Change Role
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -291,6 +326,21 @@ export default function UserManagement() {
                         <option value="editor">Editor</option>
                         <option value="admin">Admin</option>
                       </select>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    {user.id === currentUser?.uid ? (
+                      <span className="text-gray-400 text-xs italic">Cannot delete yourself</span>
+                    ) : deleting === user.id ? (
+                      <Loader2 className="w-5 h-5 animate-spin text-red-600" />
+                    ) : (
+                      <button
+                        onClick={() => deleteUser(user.id, user.displayName)}
+                        className="text-red-600 hover:text-red-900"
+                        title="Delete user"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     )}
                   </td>
                 </tr>

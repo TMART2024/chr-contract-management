@@ -1,13 +1,15 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { 
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  initializeAuth,
+  browserLocalPersistence
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
+import { initializeApp } from 'firebase/app';
 
 const AuthContext = createContext();
 
@@ -21,38 +23,68 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   async function createUserAsAdmin(email, displayName, role, department) {
-    // This is called by admins to create new users
-    const temporaryPassword = Math.random().toString(36).slice(-8) + 'Aa1!';
-    const userCredential = await createUserWithEmailAndPassword(auth, email, temporaryPassword);
+    // Create a secondary Firebase app instance to avoid logging out the admin
+    const firebaseConfig = {
+      apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+      authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+      projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    };
     
-    // Create user profile in Firestore
-    await setDoc(doc(db, 'users', userCredential.user.uid), {
-      email: email,
-      displayName: displayName,
-      role: role || 'viewer',
-      department: department || '',
-      notifications: {
-        email: true,
-        renewalAlerts: true,
-        cancellationAlerts: true,
-        alertDaysBefore: 30
-      },
-      createdAt: serverTimestamp(),
-      lastLoginAt: serverTimestamp(),
-      needsPasswordReset: true
+    const secondaryApp = initializeApp(firebaseConfig, 'Secondary');
+    const secondaryAuth = initializeAuth(secondaryApp, {
+      persistence: browserLocalPersistence
     });
-
-    // Send password reset email so they can set their own password
-    await sendPasswordResetEmail(auth, email);
     
-    // Sign out the newly created user so admin stays logged in
-    await signOut(auth);
+    try {
+      const { createUserWithEmailAndPassword } = await import('firebase/auth');
+      
+      // Create user with secondary auth (doesn't log out admin)
+      const temporaryPassword = Math.random().toString(36).slice(-8) + 'Aa1!';
+      const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, temporaryPassword);
+      
+      // Create user profile in Firestore
+      await setDoc(doc(db, 'users', userCredential.user.uid), {
+        email: email,
+        displayName: displayName,
+        role: role || 'viewer',
+        department: department || '',
+        notifications: {
+          email: true,
+          renewalAlerts: true,
+          cancellationAlerts: true,
+          alertDaysBefore: 30
+        },
+        createdAt: serverTimestamp(),
+        lastLoginAt: serverTimestamp(),
+        needsPasswordReset: true
+      });
 
-    return userCredential;
+      // Send password reset email
+      await sendPasswordResetEmail(secondaryAuth, email);
+      
+      // Sign out from secondary auth and delete the app
+      await signOut(secondaryAuth);
+      await secondaryApp.delete();
+
+      return { success: true };
+    } catch (error) {
+      // Clean up secondary app on error
+      try {
+        await secondaryApp.delete();
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+      throw error;
+    }
   }
 
   async function login(email, password) {
-    return signInWithEmailAndPassword(auth, email, password);
+    const result = await signInWithEmailAndPassword(auth, email, password);
+    // Update last login time
+    await updateDoc(doc(db, 'users', result.user.uid), {
+      lastLoginAt: serverTimestamp()
+    });
+    return result;
   }
 
   async function logout() {
