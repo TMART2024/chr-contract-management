@@ -138,5 +138,6 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={value}>
       {!loading && children}
     </AuthContext.Provider>
-  );
+  ); 
 }
+//comment

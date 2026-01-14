@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Users, Shield, Eye, Edit, Loader2, Plus, X, Trash2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -126,27 +125,31 @@ export default function UserManagement() {
 
     setDeleting(userId);
     try {
-      // Call Cloud Function to delete user from both Auth and Firestore
-      const functions = getFunctions();
-      const deleteUserFunction = httpsCallable(functions, 'deleteUser');
+      // Call Cloud Function directly as HTTP endpoint
+      const functionUrl = 'https://us-central1-chr-contract-management.cloudfunctions.net/deleteUser';
       
-      const result = await deleteUserFunction({ userId });
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId: userId,
+          requesterId: currentUser.uid
+        })
+      });
+
+      const result = await response.json();
       
-      if (result.data.success) {
+      if (response.ok && result.data?.success) {
         await loadUsers();
         alert('User fully deleted from system');
       } else {
-        throw new Error('Delete operation failed');
+        throw new Error(result.error || 'Delete operation failed');
       }
     } catch (error) {
       console.error('Error deleting user:', error);
-      if (error.code === 'functions/permission-denied') {
-        alert('Permission denied: Only admins can delete users');
-      } else if (error.code === 'functions/unauthenticated') {
-        alert('You must be logged in to delete users');
-      } else {
-        alert('Failed to delete user: ' + error.message);
-      }
+      alert('Failed to delete user: ' + error.message);
     } finally {
       setDeleting(null);
     }
