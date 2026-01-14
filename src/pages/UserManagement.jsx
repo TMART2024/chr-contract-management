@@ -60,13 +60,14 @@ export default function UserManagement() {
       
       alert(`User created! A password reset email has been sent to ${newUser.email}`);
       
-      setShowAddUser(false);
+      // Reset form and close modal
       setNewUser({
         email: '',
         displayName: '',
         role: 'viewer',
         department: ''
       });
+      setShowAddUser(false);
       
       // Reload users list
       await loadUsers();
@@ -81,6 +82,18 @@ export default function UserManagement() {
     } finally {
       setCreating(false);
     }
+  }
+
+  function handleCancelAddUser() {
+    // Reset form
+    setNewUser({
+      email: '',
+      displayName: '',
+      role: 'viewer',
+      department: ''
+    });
+    // Close modal
+    setShowAddUser(false);
   }
 
   async function updateUserRole(userId, newRole) {
@@ -168,7 +181,7 @@ export default function UserManagement() {
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
             <div className="flex justify-between items-center p-6 border-b border-gray-200">
               <h2 className="text-xl font-bold text-gray-900">Add New User</h2>
-              <button onClick={() => setShowAddUser(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+              <button onClick={handleCancelAddUser} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -245,7 +258,7 @@ export default function UserManagement() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowAddUser(false)}
+                  onClick={handleCancelAddUser}
                   className="btn-secondary"
                 >
                   Cancel
