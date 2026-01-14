@@ -5,7 +5,8 @@ import {
   onAuthStateChanged,
   sendPasswordResetEmail,
   initializeAuth,
-  browserLocalPersistence
+  browserSessionPersistence,
+  setPersistence
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
@@ -22,6 +23,13 @@ export function AuthProvider({ children }) {
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    // Set auth to session persistence (logs out when browser closes)
+    setPersistence(auth, browserSessionPersistence).catch((error) => {
+      console.error('Error setting persistence:', error);
+    });
+  }, []);
+
   async function createUserAsAdmin(email, displayName, role, department) {
     // Create a secondary Firebase app instance to avoid logging out the admin
     const firebaseConfig = {
@@ -32,7 +40,7 @@ export function AuthProvider({ children }) {
     
     const secondaryApp = initializeApp(firebaseConfig, 'Secondary');
     const secondaryAuth = initializeAuth(secondaryApp, {
-      persistence: browserLocalPersistence
+      persistence: browserSessionPersistence
     });
     
     try {
