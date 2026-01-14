@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import VendorContracts from './pages/VendorContracts';
 import CustomerContracts from './pages/CustomerContracts';
 import Calendar from './pages/Calendar';
+import UserManagement from './pages/UserManagement';
 import Login from './pages/Login';
 
 function PrivateRoute({ children }) {
@@ -49,6 +50,14 @@ function AppRoutes() {
           element={
             <PrivateRoute>
               <Calendar />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/user-management"
+          element={
+            <PrivateRoute>
+              <UserManagement />
             </PrivateRoute>
           }
         />

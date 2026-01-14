@@ -182,13 +182,15 @@ export default function ContractList({ contracts, onViewContract, onDeleteContra
                       >
                         <ExternalLink className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => onDeleteContract(contract.id)}
-                        className="text-red-600 hover:text-red-900"
-                        title="Delete contract"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {onDeleteContract && (
+                        <button
+                          onClick={() => onDeleteContract(contract.id)}
+                          className="text-red-600 hover:text-red-900"
+                          title="Delete contract"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

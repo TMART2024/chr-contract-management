@@ -1,17 +1,24 @@
 import { useState, useEffect } from 'react';
-import { Plus, Loader2, RefreshCw } from 'lucide-react';
+import { Plus, Loader2, RefreshCw, GitCompare } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { usePermissions } from '../hooks/usePermissions';
 import ContractList from '../components/contracts/ContractList';
-import { getContracts, createContract, deleteContract, updateContract } from '../services/contractService';
+import ContractAssessment from '../components/contracts/ContractAssessment';
+import ComparisonHub from '../components/contracts/ComparisonHub';
+import { getContracts, createContract, deleteContract, updateContract, uploadContractDocument } from '../services/contractService';
 import { syncContractToFreshSales } from '../services/freshsalesService';
 import { Timestamp } from 'firebase/firestore';
 
 export default function CustomerContracts() {
   const { currentUser } = useAuth();
+  const { canCreate, canEdit, canDelete, canSync } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [contracts, setContracts] = useState([]);
   const [showForm, setShowForm] = useState(false);
+  const [showAssessment, setShowAssessment] = useState(false);
+  const [showComparison, setShowComparison] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [assessmentData, setAssessmentData] = useState(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -43,6 +50,11 @@ export default function CustomerContracts() {
     }
   }
 
+  async function handleAssessmentComplete(data) {
+    setAssessmentData(data);
+    setShowForm(true);
+  }
+
   async function handleSaveContract(e) {
     e.preventDefault();
     
@@ -67,21 +79,47 @@ export default function CustomerContracts() {
         throw new Error(createResult.error);
       }
 
+      const contractId = createResult.id;
+
+      // Upload the document if we have one from assessment
+      if (assessmentData?.file) {
+        const uploadResult = await uploadContractDocument(assessmentData.file, contractId);
+        
+        if (uploadResult.success) {
+          await updateContract(contractId, {
+            documentUrl: uploadResult.url,
+            documentName: uploadResult.name,
+            documentSize: uploadResult.size,
+            uploadedAt: Timestamp.now()
+          });
+        }
+      }
+
+      // Save the assessment if we have one
+      if (assessmentData?.assessment) {
+        const { saveAssessment } = await import('../services/contractService');
+        await saveAssessment({
+          contractId: contractId,
+          ...assessmentData.assessment,
+          assessmentCriteria: assessmentData.criteria
+        }, currentUser.uid);
+      }
+
       // Sync to FreshSales
       const syncResult = await syncContractToFreshSales({
         ...contractData,
-        id: createResult.id
+        id: contractId
       });
 
       if (syncResult.success) {
-        await updateContract(createResult.id, {
+        await updateContract(contractId, {
           freshsalesId: syncResult.freshsalesId,
           syncStatus: 'synced',
           lastSyncedAt: Timestamp.now()
         });
       } else {
         console.warn('FreshSales sync failed:', syncResult.error);
-        await updateContract(createResult.id, {
+        await updateContract(contractId, {
           syncStatus: 'error'
         });
       }
@@ -133,6 +171,8 @@ export default function CustomerContracts() {
 
   function resetForm() {
     setShowForm(false);
+    setShowAssessment(false);
+    setAssessmentData(null);
     setFormData({
       name: '',
       description: '',
@@ -194,36 +234,58 @@ export default function CustomerContracts() {
         </div>
         <div className="flex space-x-3">
           <button
-            onClick={handleSyncToFreshSales}
-            disabled={syncing}
+            onClick={() => setShowComparison(true)}
             className="btn-secondary"
           >
-            {syncing ? (
-              <>
-                <Loader2 className="w-5 h-5 mr-2 inline animate-spin" />
-                Syncing...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="w-5 h-5 mr-2 inline" />
-                Sync to FreshSales
-              </>
-            )}
+            <GitCompare className="w-5 h-5 mr-2 inline" />
+            Compare
           </button>
-          <button
-            onClick={() => setShowForm(true)}
-            className="btn-primary"
-          >
-            <Plus className="w-5 h-5 mr-2 inline" />
-            Add Customer Contract
-          </button>
+          {canSync && (
+            <button
+              onClick={handleSyncToFreshSales}
+              disabled={syncing}
+              className="btn-secondary"
+            >
+              {syncing ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 inline animate-spin" />
+                  Syncing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-5 h-5 mr-2 inline" />
+                  Sync to FreshSales
+                </>
+              )}
+            </button>
+          )}
+          {canCreate && (
+            <>
+              <button
+                onClick={() => setShowForm(true)}
+                className="btn-secondary"
+              >
+                <Plus className="w-5 h-5 mr-2 inline" />
+                Add Contract
+              </button>
+              <button
+                onClick={() => setShowAssessment(true)}
+                className="btn-primary"
+              >
+                <Plus className="w-5 h-5 mr-2 inline" />
+                Assess Contract
+              </button>
+            </>
+          )}
         </div>
       </div>
 
       {/* Contract Form */}
       {showForm && (
         <div className="card mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">New Customer Contract</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+            {assessmentData ? 'Customer Contract (Assessed)' : 'New Customer Contract'}
+          </h2>
           <form onSubmit={handleSaveContract} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -362,7 +424,21 @@ export default function CustomerContracts() {
         contracts={contracts}
         type="customer"
         onViewContract={(contract) => console.log('View contract:', contract)}
-        onDeleteContract={handleDeleteContract}
+        onDeleteContract={canDelete ? handleDeleteContract : null}
+      />
+
+      {/* Assessment Modal */}
+      <ContractAssessment
+        isOpen={showAssessment}
+        onClose={() => setShowAssessment(false)}
+        onAssessmentComplete={handleAssessmentComplete}
+      />
+      
+      {/* Comparison Modal */}
+      <ComparisonHub
+        isOpen={showComparison}
+        onClose={() => setShowComparison(false)}
+        existingContracts={contracts}
       />
     </div>
   );

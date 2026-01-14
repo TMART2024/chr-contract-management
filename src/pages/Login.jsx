@@ -4,16 +4,14 @@ import { useAuth } from '../contexts/AuthContext';
 import { FileText, Loader2 } from 'lucide-react';
 
 export default function Login() {
-  const { login, signup } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
-  const [isSignup, setIsSignup] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const [formData, setFormData] = useState({
     email: '',
-    password: '',
-    displayName: ''
+    password: ''
   });
 
   async function handleSubmit(e) {
@@ -22,14 +20,16 @@ export default function Login() {
     setLoading(true);
 
     try {
-      if (isSignup) {
-        await signup(formData.email, formData.password, formData.displayName);
-      } else {
-        await login(formData.email, formData.password);
-      }
+      await login(formData.email, formData.password);
       navigate('/');
     } catch (error) {
-      setError(error.message);
+      if (error.code === 'auth/invalid-credential') {
+        setError('Invalid email or password');
+      } else if (error.code === 'auth/user-not-found') {
+        setError('No account found with this email. Contact your administrator.');
+      } else {
+        setError(error.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -47,7 +47,7 @@ export default function Login() {
             CHR Contract Management
           </h1>
           <p className="text-gray-600">
-            {isSignup ? 'Create your account' : 'Sign in to your account'}
+            Sign in to your account
           </p>
         </div>
 
@@ -60,20 +60,6 @@ export default function Login() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {isSignup && (
-              <div>
-                <label className="label">Full Name</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.displayName}
-                  onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
-                  className="input-field"
-                  placeholder="John Doe"
-                />
-              </div>
-            )}
-
             <div>
               <label className="label">Email</label>
               <input
@@ -81,7 +67,7 @@ export default function Login() {
                 required
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="input-field"
+                className="input-field text-gray-900"
                 placeholder="you@chrintegrated.com"
               />
             </div>
@@ -93,7 +79,7 @@ export default function Login() {
                 required
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="input-field"
+                className="input-field text-gray-900"
                 placeholder="••••••••"
               />
             </div>
@@ -106,23 +92,18 @@ export default function Login() {
               {loading ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin inline" />
-                  {isSignup ? 'Creating Account...' : 'Signing In...'}
+                  Signing In...
                 </>
               ) : (
-                <>{isSignup ? 'Create Account' : 'Sign In'}</>
+                'Sign In'
               )}
             </button>
           </form>
 
           <div className="mt-6 text-center">
-            <button
-              onClick={() => setIsSignup(!isSignup)}
-              className="text-sm text-primary-600 hover:text-primary-800"
-            >
-              {isSignup 
-                ? 'Already have an account? Sign in' 
-                : "Don't have an account? Sign up"}
-            </button>
+            <p className="text-sm text-gray-600">
+              Need access? Contact your administrator.
+            </p>
           </div>
         </div>
 

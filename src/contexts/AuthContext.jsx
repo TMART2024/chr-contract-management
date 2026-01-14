@@ -3,9 +3,10 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  sendPasswordResetEmail
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 
 const AuthContext = createContext();
@@ -19,24 +20,33 @@ export function AuthProvider({ children }) {
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  async function signup(email, password, displayName) {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+  async function createUserAsAdmin(email, displayName, role, department) {
+    // This is called by admins to create new users
+    const temporaryPassword = Math.random().toString(36).slice(-8) + 'Aa1!';
+    const userCredential = await createUserWithEmailAndPassword(auth, email, temporaryPassword);
     
     // Create user profile in Firestore
     await setDoc(doc(db, 'users', userCredential.user.uid), {
       email: email,
       displayName: displayName,
-      role: 'viewer', // Default role
-      department: '',
+      role: role || 'viewer',
+      department: department || '',
       notifications: {
         email: true,
         renewalAlerts: true,
         cancellationAlerts: true,
         alertDaysBefore: 30
       },
-      createdAt: new Date(),
-      lastLoginAt: new Date()
+      createdAt: serverTimestamp(),
+      lastLoginAt: serverTimestamp(),
+      needsPasswordReset: true
     });
+
+    // Send password reset email so they can set their own password
+    await sendPasswordResetEmail(auth, email);
+    
+    // Sign out the newly created user so admin stays logged in
+    await signOut(auth);
 
     return userCredential;
   }
@@ -47,6 +57,10 @@ export function AuthProvider({ children }) {
 
   async function logout() {
     return signOut(auth);
+  }
+
+  async function resetPassword(email) {
+    return sendPasswordResetEmail(auth, email);
   }
 
   useEffect(() => {
@@ -72,9 +86,10 @@ export function AuthProvider({ children }) {
   const value = {
     currentUser,
     userProfile,
-    signup,
+    createUserAsAdmin,
     login,
-    logout
+    logout,
+    resetPassword
   };
 
   return (

@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { FileText, LogOut, User, Bell } from 'lucide-react';
+import { usePermissions } from '../../hooks/usePermissions';
+import { FileText, LogOut, User, Bell, Shield } from 'lucide-react';
 
 export default function Header() {
   const { currentUser, userProfile, logout } = useAuth();
+  const { canManageUsers } = usePermissions();
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
@@ -56,6 +58,15 @@ export default function Header() {
             >
               Calendar
             </Link>
+            {canManageUsers && (
+              <Link
+                to="/user-management"
+                className="text-gray-700 hover:text-primary-600 px-3 py-2 text-sm font-medium transition-colors flex items-center"
+              >
+                <Shield className="w-4 h-4 mr-1" />
+                Users
+              </Link>
+            )}
           </nav>
 
           {/* User Menu */}

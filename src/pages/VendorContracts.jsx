@@ -1,17 +1,21 @@
 import { useState, useEffect } from 'react';
-import { Plus, Loader2 } from 'lucide-react';
+import { Plus, Loader2, GitCompare } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { usePermissions } from '../hooks/usePermissions';
 import ContractList from '../components/contracts/ContractList';
 import ContractAssessment from '../components/contracts/ContractAssessment';
-import { getContracts, createContract, uploadContractDocument, saveAssessment, deleteContract } from '../services/contractService';
+import ComparisonHub from '../components/contracts/ComparisonHub';
+import { getContracts, createContract, uploadContractDocument, saveAssessment, deleteContract, updateContract } from '../services/contractService';
 import { Timestamp } from 'firebase/firestore';
 
 export default function VendorContracts() {
   const { currentUser } = useAuth();
+  const { canCreate, canEdit, canDelete } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [contracts, setContracts] = useState([]);
   const [showAssessment, setShowAssessment] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [showComparison, setShowComparison] = useState(false);
   const [assessmentData, setAssessmentData] = useState(null);
 
   // Form state
@@ -159,19 +163,41 @@ export default function VendorContracts() {
             Manage contracts with your vendors and suppliers
           </p>
         </div>
-        <button
-          onClick={() => setShowAssessment(true)}
-          className="btn-primary"
-        >
-          <Plus className="w-5 h-5 mr-2 inline" />
-          Assess New Contract
-        </button>
+        <div className="flex space-x-3">
+          <button
+            onClick={() => setShowComparison(true)}
+            className="btn-secondary"
+          >
+            <GitCompare className="w-5 h-5 mr-2 inline" />
+            Compare
+          </button>
+          {canCreate && (
+            <>
+              <button
+                onClick={() => setShowForm(true)}
+                className="btn-secondary"
+              >
+                <Plus className="w-5 h-5 mr-2 inline" />
+                Add Contract
+              </button>
+              <button
+                onClick={() => setShowAssessment(true)}
+                className="btn-primary"
+              >
+                <Plus className="w-5 h-5 mr-2 inline" />
+                Assess Contract
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Contract Form */}
-      {showForm && assessmentData && (
+      {showForm && (
         <div className="card mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Contract Details</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+            {assessmentData ? 'Contract Details (Assessed)' : 'Add Vendor Contract'}
+          </h2>
           <form onSubmit={handleSaveContract} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -278,7 +304,7 @@ export default function VendorContracts() {
         contracts={contracts}
         type="vendor"
         onViewContract={(contract) => console.log('View contract:', contract)}
-        onDeleteContract={handleDeleteContract}
+        onDeleteContract={canDelete ? handleDeleteContract : null}
       />
 
       {/* Assessment Modal */}
@@ -286,6 +312,13 @@ export default function VendorContracts() {
         isOpen={showAssessment}
         onClose={() => setShowAssessment(false)}
         onAssessmentComplete={handleAssessmentComplete}
+      />
+      
+      {/* Comparison Modal */}
+      <ComparisonHub
+        isOpen={showComparison}
+        onClose={() => setShowComparison(false)}
+        existingContracts={contracts}
       />
     </div>
   );

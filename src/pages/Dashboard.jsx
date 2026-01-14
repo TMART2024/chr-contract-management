@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { Loader2, GitCompare } from 'lucide-react';
 import AIQuery from '../components/ai/AIQuery';
 import DashboardStats from '../components/dashboard/DashboardStats';
+import ComparisonHub from '../components/contracts/ComparisonHub';
 import { getContracts, getContractStats } from '../services/contractService';
 
 export default function Dashboard() {
@@ -11,6 +12,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [contracts, setContracts] = useState([]);
   const [expiringContracts, setExpiringContracts] = useState([]);
+  const [showComparison, setShowComparison] = useState(false);
 
   useEffect(() => {
     loadDashboardData();
@@ -63,11 +65,20 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Contract Dashboard</h1>
-        <p className="text-gray-600">
-          Manage and track all your vendor and customer contracts in one place
-        </p>
+      <div className="mb-8 flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Contract Dashboard</h1>
+          <p className="text-gray-600">
+            Manage and track all your vendor and customer contracts in one place
+          </p>
+        </div>
+        <button
+          onClick={() => setShowComparison(true)}
+          className="btn-primary"
+        >
+          <GitCompare className="w-5 h-5 mr-2 inline" />
+          Compare Contracts
+        </button>
       </div>
 
       {/* Stats Grid */}
@@ -155,6 +166,13 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+      
+      {/* Contract Comparison Modal */}
+      <ComparisonHub
+        isOpen={showComparison}
+        onClose={() => setShowComparison(false)}
+        existingContracts={contracts}
+      />
     </div>
   );
 }
