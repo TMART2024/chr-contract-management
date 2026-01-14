@@ -33,7 +33,8 @@ export default function VendorContracts() {
     autoRenewalPeriod: 1,
     cancellationNoticeDays: 30,
     usersOrAccountNumber: '',
-    requestedFrom: ''
+    requestedFrom: '',
+    document: null
   });
 
   useEffect(() => {
@@ -90,9 +91,11 @@ export default function VendorContracts() {
 
       const contractId = createResult.id;
 
-      // Upload the document if we have one from assessment
-      if (assessmentData?.file) {
-        const uploadResult = await uploadContractDocument(assessmentData.file, contractId);
+      // Upload the document if provided (either from form or assessment)
+      const documentToUpload = formData.document || assessmentData?.file;
+      
+      if (documentToUpload) {
+        const uploadResult = await uploadContractDocument(documentToUpload, contractId);
         
         if (uploadResult.success) {
           // Update contract with document info
@@ -143,7 +146,8 @@ export default function VendorContracts() {
       autoRenewalPeriod: 1,
       cancellationNoticeDays: 30,
       usersOrAccountNumber: '',
-      requestedFrom: ''
+      requestedFrom: '',
+      document: null
     });
   }
 
@@ -351,6 +355,21 @@ export default function VendorContracts() {
                   rows="3"
                   placeholder="Additional notes or details"
                 />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="label">Contract Document (PDF)</label>
+                <input
+                  type="file"
+                  accept=".pdf"
+                  onChange={(e) => setFormData({ ...formData, document: e.target.files[0] })}
+                  className="input-field"
+                />
+                {formData.document && (
+                  <p className="text-sm text-gray-600 mt-1">
+                    Selected: {formData.document.name}
+                  </p>
+                )}
               </div>
 
               <div className="md:col-span-2 flex items-center space-x-4 pt-2">
