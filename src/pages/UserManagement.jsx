@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Users, Shield, Eye, Edit, Loader2, Plus, X, Trash2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -119,19 +120,33 @@ export default function UserManagement() {
       return;
     }
 
-    if (!confirm(`Are you sure you want to delete ${userName}? This action cannot be undone.`)) {
+    if (!confirm(`Are you sure you want to delete ${userName}? This will completely remove them from the system and they will not be able to login.`)) {
       return;
     }
 
     setDeleting(userId);
     try {
-      // Delete from Firestore (note: this doesn't delete from Firebase Auth)
-      await deleteDoc(doc(db, 'users', userId));
-      await loadUsers();
-      alert('User deleted successfully. Note: They can still login if they remember their password, but will have no permissions.');
+      // Call Cloud Function to delete user from both Auth and Firestore
+      const functions = getFunctions();
+      const deleteUserFunction = httpsCallable(functions, 'deleteUser');
+      
+      const result = await deleteUserFunction({ userId });
+      
+      if (result.data.success) {
+        await loadUsers();
+        alert('User fully deleted from system');
+      } else {
+        throw new Error('Delete operation failed');
+      }
     } catch (error) {
       console.error('Error deleting user:', error);
-      alert('Failed to delete user');
+      if (error.code === 'functions/permission-denied') {
+        alert('Permission denied: Only admins can delete users');
+      } else if (error.code === 'functions/unauthenticated') {
+        alert('You must be logged in to delete users');
+      } else {
+        alert('Failed to delete user: ' + error.message);
+      }
     } finally {
       setDeleting(null);
     }
