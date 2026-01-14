@@ -1,5 +1,5 @@
-const ANTHROPIC_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY;
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
+// Use serverless function to avoid CORS issues
+const ANTHROPIC_API_URL = '/api/anthropic';
 
 /**
  * Analyze a contract document using Claude AI
@@ -62,9 +62,7 @@ Be thorough but concise. Flag anything that seems sketchy or could cause problem
     const response = await fetch(ANTHROPIC_API_URL, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
@@ -183,9 +181,7 @@ Format your response as JSON:
     const response = await fetch(ANTHROPIC_API_URL, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',

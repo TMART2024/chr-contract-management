@@ -3,8 +3,8 @@ import { X, Loader2, GitCompare, Upload, FileText } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { fileToBase64, formatFileSize, isValidFileType } from '../../utils/helpers';
 
-const ANTHROPIC_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY;
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
+// Use serverless function to avoid CORS issues
+const ANTHROPIC_API_URL = '/api/anthropic';
 
 export default function ComparisonHub({ isOpen, onClose, existingContracts = [] }) {
   const [mode, setMode] = useState(null); // 'existing', 'proposals', 'renewal'
@@ -308,9 +308,7 @@ Provide a comprehensive comparison in JSON format:
       const response = await fetch(ANTHROPIC_API_URL, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
