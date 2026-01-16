@@ -23,14 +23,17 @@ export default function ContractAssessment({ isOpen, onClose, onAssessmentComple
         setFile(uploadedFile);
         setAssessment(null);
       } else {
-        alert('Please upload a PDF file');
+        alert('Please upload a PDF or Word document (.docx)');
       }
     }
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { 'application/pdf': ['.pdf'] },
+    accept: { 
+      'application/pdf': ['.pdf'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx']
+    },
     multiple: false
   });
 
@@ -40,7 +43,8 @@ export default function ContractAssessment({ isOpen, onClose, onAssessmentComple
     setAnalyzing(true);
     try {
       const base64 = await fileToBase64(file);
-      const result = await analyzeContract(base64, criteria);
+      const fileType = file.type.includes('word') || file.name.endsWith('.docx') ? 'docx' : 'pdf';
+      const result = await analyzeContract(base64, criteria, fileType);
 
       if (result.success) {
         setAssessment(result.analysis);

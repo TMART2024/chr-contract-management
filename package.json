@@ -16,6 +16,8 @@
     "firebase": "^10.7.1",
     "lucide-react": "^0.294.0",
     "date-fns": "^3.0.0",
+    "mammoth": "^1.6.0",
+    "pdf-parse": "^1.1.1",
     "react-dropzone": "^14.2.3",
     "recharts": "^2.10.3"
   },

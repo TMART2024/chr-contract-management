@@ -3,11 +3,12 @@ const ANTHROPIC_API_URL = '/api/anthropic';
 
 /**
  * Analyze a contract document using Claude AI
- * @param {string} base64Document - Base64 encoded PDF document
+ * @param {string} base64Document - Base64 encoded document
  * @param {string[]} criteria - Specific things to look for in the contract
+ * @param {string} fileType - File type ('pdf' or 'docx')
  * @returns {Promise<Object>} Analysis results
  */
-export async function analyzeContract(base64Document, criteria = []) {
+export async function analyzeContract(base64Document, criteria = [], fileType = 'pdf') {
   const defaultCriteria = [
     'auto-renewal clauses and terms',
     'cancellation notice requirements',
@@ -18,6 +19,35 @@ export async function analyzeContract(base64Document, criteria = []) {
   ];
 
   const assessmentCriteria = criteria.length > 0 ? criteria : defaultCriteria;
+  
+  // Extract text from document based on file type
+  let contractText;
+  try {
+    const endpoint = fileType === 'docx' ? '/api/extract-docx-text' : '/api/extract-pdf-text';
+    const bodyKey = fileType === 'docx' ? 'docxBase64' : 'pdfBase64';
+    
+    const extractResponse = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ [bodyKey]: base64Document })
+    });
+
+    if (!extractResponse.ok) {
+      throw new Error(`Failed to extract text from ${fileType.toUpperCase()}`);
+    }
+
+    const extractData = await extractResponse.json();
+    contractText = extractData.text;
+
+    if (!contractText || contractText.trim().length === 0) {
+      throw new Error(`No text could be extracted from the ${fileType.toUpperCase()}`);
+    }
+  } catch (error) {
+    console.error('Text extraction error:', error);
+    throw new Error(`Failed to extract text from ${fileType.toUpperCase()}: ` + error.message);
+  }
   
   const prompt = `You are a legal contract analyst. I need you to carefully review this contract document and provide a comprehensive assessment.
 
@@ -70,20 +100,10 @@ Be thorough but concise. Flag anything that seems sketchy or could cause problem
         messages: [
           {
             role: 'user',
-            content: [
-              {
-                type: 'document',
-                source: {
-                  type: 'base64',
-                  media_type: 'application/pdf',
-                  data: base64Document
-                }
-              },
-              {
-                type: 'text',
-                text: prompt
-              }
-            ]
+            content: `${prompt}
+
+CONTRACT TEXT:
+${contractText}`
           }
         ]
       })

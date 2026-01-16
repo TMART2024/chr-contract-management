@@ -6,6 +6,34 @@ import { fileToBase64, formatFileSize, isValidFileType } from '../../utils/helpe
 // Use serverless function to avoid CORS issues
 const ANTHROPIC_API_URL = '/api/anthropic';
 
+// Helper to extract text from PDF or DOCX
+async function extractTextFromPDF(base64Data, fileName = '') {
+  try {
+    // Determine file type
+    const isDocx = fileName.toLowerCase().endsWith('.docx') || fileName.includes('word');
+    const endpoint = isDocx ? '/api/extract-docx-text' : '/api/extract-pdf-text';
+    const bodyKey = isDocx ? 'docxBase64' : 'pdfBase64';
+    
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ [bodyKey]: base64Data })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to extract text');
+    }
+
+    const data = await response.json();
+    return data.text;
+  } catch (error) {
+    console.error('Text extraction error:', error);
+    throw error;
+  }
+}
+
 export default function ComparisonHub({ isOpen, onClose, existingContracts = [] }) {
   const [mode, setMode] = useState(null); // 'existing', 'proposals', 'renewal'
   const [comparing, setComparing] = useState(false);
@@ -38,13 +66,19 @@ export default function ComparisonHub({ isOpen, onClose, existingContracts = [] 
 
   const { getRootProps: getProposalsProps, getInputProps: getProposalsInput } = useDropzone({
     onDrop: onDropProposals,
-    accept: { 'application/pdf': ['.pdf'] },
+    accept: { 
+      'application/pdf': ['.pdf'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx']
+    },
     multiple: true
   });
 
   const { getRootProps: getRenewalProps, getInputProps: getRenewalInput } = useDropzone({
     onDrop: onDropRenewal,
-    accept: { 'application/pdf': ['.pdf'] },
+    accept: { 
+      'application/pdf': ['.pdf'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx']
+    },
     multiple: false
   });
 
@@ -107,13 +141,18 @@ export default function ComparisonHub({ isOpen, onClose, existingContracts = [] 
             const response = await fetch(contract.documentUrl);
             const blob = await response.blob();
             const base64 = await fileToBase64(blob);
+            
+            // Extract text from document
+            const text = await extractTextFromPDF(base64, contract.documentName || contract.name);
+            
             return {
               name: contract.name,
               type: contract.type,
               hasDocument: true,
-              base64: base64
+              text: text
             };
           } catch (error) {
+            console.error('Error processing document:', error);
             return {
               name: contract.name,
               type: contract.type,
@@ -138,11 +177,15 @@ export default function ComparisonHub({ isOpen, onClose, existingContracts = [] 
     const contractData = await Promise.all(
       proposalFiles.map(async (file, index) => {
         const base64 = await fileToBase64(file);
+        
+        // Extract text from document (PDF or DOCX)
+        const text = await extractTextFromPDF(base64, file.name);
+        
         return {
-          name: file.name.replace('.pdf', ''),
+          name: file.name.replace(/\.(pdf|docx)$/i, ''),
           type: 'proposal',
           hasDocument: true,
-          base64: base64,
+          text: text,
           isProposal: true
         };
       })
@@ -161,13 +204,18 @@ export default function ComparisonHub({ isOpen, onClose, existingContracts = [] 
         const response = await fetch(existingContract.documentUrl);
         const blob = await response.blob();
         const base64 = await fileToBase64(blob);
+        
+        // Extract text from existing contract
+        const text = await extractTextFromPDF(base64, existingContract.documentName || existingContract.name);
+        
         contractData.push({
           name: `${existingContract.name} (Current)`,
           type: 'existing',
           hasDocument: true,
-          base64: base64
+          text: text
         });
       } catch (error) {
+        console.error('Error processing existing contract:', error);
         contractData.push({
           name: `${existingContract.name} (Current)`,
           type: 'existing',
@@ -186,11 +234,15 @@ export default function ComparisonHub({ isOpen, onClose, existingContracts = [] 
 
     // New proposal
     const proposalBase64 = await fileToBase64(newProposalFile);
+    
+    // Extract text from new proposal
+    const proposalText = await extractTextFromPDF(proposalBase64, newProposalFile.name);
+    
     contractData.push({
-      name: `${newProposalFile.name.replace('.pdf', '')} (Proposed)`,
+      name: `${newProposalFile.name.replace(/\.(pdf|docx)$/i, '')} (Proposed)`,
       type: 'proposal',
       hasDocument: true,
-      base64: proposalBase64,
+      text: proposalText,
       isProposal: true
     });
 
@@ -281,28 +333,19 @@ Provide a comprehensive comparison in JSON format:
 }`;
 
     try {
-      const messages = [{
-        role: 'user',
-        content: []
-      }];
-
-      // Add documents
-      contractData.forEach(contract => {
-        if (contract.hasDocument) {
-          messages[0].content.push({
-            type: 'document',
-            source: {
-              type: 'base64',
-              media_type: 'application/pdf',
-              data: contract.base64
-            }
-          });
+      // Build the message with extracted text instead of PDFs
+      let messageContent = prompt + '\n\n';
+      
+      contractData.forEach((contract, index) => {
+        messageContent += `\n=== CONTRACT ${index + 1}: ${contract.name} ===\n`;
+        
+        if (contract.hasDocument && contract.text) {
+          messageContent += `${contract.text}\n`;
+        } else if (contract.metadata) {
+          messageContent += `Metadata: ${JSON.stringify(contract.metadata, null, 2)}\n`;
         }
-      });
-
-      messages[0].content.push({
-        type: 'text',
-        text: prompt
+        
+        messageContent += '\n';
       });
 
       const response = await fetch(ANTHROPIC_API_URL, {
@@ -313,7 +356,10 @@ Provide a comprehensive comparison in JSON format:
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 4000,
-          messages: messages
+          messages: [{
+            role: 'user',
+            content: messageContent
+          }]
         })
       });
 
@@ -502,7 +548,7 @@ Provide a comprehensive comparison in JSON format:
               </div>
 
               <div>
-                <label className="label">Upload Proposal PDFs (minimum 2)</label>
+                <label className="label">Upload Proposals (PDF or Word, minimum 2)</label>
                 <div
                   {...getProposalsProps()}
                   className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-primary-400 transition-colors"

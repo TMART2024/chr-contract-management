@@ -99,7 +99,7 @@ export function formatFileSize(bytes) {
 /**
  * Validate file type
  */
-export function isValidFileType(file, allowedTypes = ['application/pdf']) {
+export function isValidFileType(file, allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']) {
   return allowedTypes.includes(file.type);
 }
 
